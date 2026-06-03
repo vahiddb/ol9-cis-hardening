@@ -17,13 +17,12 @@ done
 
 echo "[*] Fixing permissions on interactive user home directories..."
 awk -F: '($3 >= 1000 && $1 != "nfsnobody") { print $1 " " $6 }' /etc/passwd | while read -r user dir; do
-    if [ -d "$dir" ]; then
+    # check not / directory
+    if [ -d "$dir" ] && [ "$dir" != "/" ]; then
         chmod g-w,o-rwx "$dir"
-        
+
         # Securing dot files
         find "$dir" -type f -name ".*" -exec chmod go-w {} \; 2>/dev/null
     fi
 done
 
-echo "[+] Automated remediation applied."
-echo "[!] Action Required: Duplicate UIDs, GIDs, and Usernames must be resolved manually."
