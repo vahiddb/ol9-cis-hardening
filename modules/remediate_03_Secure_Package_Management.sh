@@ -23,14 +23,32 @@ set_dnf_option "gpgcheck" "1"
 set_dnf_option "localpkg_gpgcheck" "1"
 set_dnf_option "repo_gpgcheck" "0"
 
-# 2. Fix Repo Overrides (Change gpgcheck=0 to gpgcheck=1 in all .repo files)
-echo -e "\n  [*] Checking for gpgcheck overrides in repository files..."
-if grep -qir '^gpgcheck\s*=\s*0' /etc/yum.repos.d/; then
-    sed -i 's/^gpgcheck\s*=\s*0/gpgcheck=1/ig' /etc/yum.repos.d/*.repo
-    echo "  [+] Fixed: Changed 'gpgcheck=0' to 'gpgcheck=1' in repository files."
-else
-    echo "  [INFO] No repository overrides found."
+# 2. Fix Repo Overrides and Ensure GPG Key (Change gpgcheck=0 to gpgcheck=1)
+echo -e "\n  [*] Fixing gpgcheck and ensuring gpgkey is set in repository files..."
+
+# Import the Oracle GPG Key globally to prevent interactive prompts
+if [ -f /etc/pki/rpm-gpg/RPM-GPG-KEY-oracle ]; then
+    rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-oracle
+    echo "  [+] Oracle GPG Key imported successfully."
 fi
+
+# Loop through all repo files to enforce gpgcheck and append gpgkey if missing
+for repo in /etc/yum.repos.d/*.repo; do
+    if [ -f "$repo" ]; then
+        # 1. Change gpgcheck=0 to gpgcheck=1
+        if grep -qir '^gpgcheck\s*=\s*0' "$repo"; then
+            sed -i 's/^gpgcheck\s*=\s*0/gpgcheck=1/ig' "$repo"
+            echo "  [+] Fixed: Changed 'gpgcheck=0' to 'gpgcheck=1' in $repo"
+        fi
+        
+        # 2. Add gpgkey if it does not exist in the file
+        if ! grep -qi '^gpgkey\s*=' "$repo"; then
+            echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-oracle" >> "$repo"
+            echo "  [+] Added 'gpgkey' path to $repo"
+        fi
+    fi
+done
+
 
 # 3. Configure Local Repository Template (if not exists)
 # ... (ادامه اسکریپت قبلی برای ساخت offline-local.repo) ...
